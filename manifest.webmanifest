@@ -1,0 +1,10 @@
+{
+  "name": "KAOJJ ACP 错题刷题",
+  "short_name": "ACP 刷题",
+  "description": "KAOJJ ACP 错题刷题工具",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f8f7",
+  "theme_color": "#0f766e",
+  "lang": "zh-CN"
+}
