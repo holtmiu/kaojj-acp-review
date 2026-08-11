@@ -1,5 +1,13 @@
-const CACHE_NAME = "kaojj-acp-static-v4";
-const APP_SHELL = ["./", "./index.html", "./styles.css", "./question-bank.js", "./app.js", "./manifest.webmanifest"];
+const CACHE_NAME = "kaojj-acp-static-v5";
+const APP_SHELL = [
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./question-bank.js",
+  ...Array.from({ length: 24 }, (_, index) => `./question-bank-${String(index + 1).padStart(2, "0")}.js`),
+  "./app.js",
+  "./manifest.webmanifest",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
