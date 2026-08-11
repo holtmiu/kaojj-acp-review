@@ -1,4 +1,4 @@
-const CACHE_NAME = "kaojj-acp-static-v1";
+const CACHE_NAME = "kaojj-acp-static-v2";
 const APP_SHELL = ["./", "./index.html", "./styles.css", "./parser.js", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
