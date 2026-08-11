@@ -1,4 +1,4 @@
-const CACHE_NAME = "kaojj-acp-static-v5";
+const CACHE_NAME = "kaojj-acp-static-v6";
 const APP_SHELL = [
   "./",
   "./index.html",

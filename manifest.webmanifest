@@ -1,7 +1,7 @@
 {
-  "name": "KAOJJ ACP 错题刷题",
-  "short_name": "ACP 刷题",
-  "description": "KAOJJ ACP 错题刷题工具",
+  "name": "KAOJJ ACP 科学复习",
+  "short_name": "ACP 复习",
+  "description": "知识聚类、二八优先级与间隔重复驱动的 ACP 复习工具",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f5f8f7",

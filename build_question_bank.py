@@ -76,6 +76,7 @@ def parse_markdown(source):
     for position, match in enumerate(starts):
         next_start = starts[position + 1].start() if position + 1 < len(starts) else len(source)
         chunk = source[match.start():next_start]
+        metadata = {}
         sections = {}
         current = None
         for raw_line in chunk.splitlines():
@@ -83,6 +84,10 @@ def parse_markdown(source):
             if heading:
                 current = heading.group(1).strip()
                 sections[current] = []
+            elif current is None:
+                item = re.match(r"^-\s*([^：:]+)\s*[：:]\s*(.+)$", raw_line.strip())
+                if item:
+                    metadata[item.group(1).strip()] = item.group(2).strip()
             elif current:
                 sections[current].append(raw_line)
 
@@ -123,6 +128,14 @@ def parse_markdown(source):
                 "stem": stem,
                 "options": options,
                 "correctAnswers": answers,
+                "priority": metadata.get("优先级", "P2"),
+                "domains": [
+                    item.strip()
+                    for item in re.split(r"\s+/\s+", metadata.get("知识域", "未分类"))
+                    if item.strip()
+                ],
+                "questionType": metadata.get("题型", ""),
+                "sourceNumber": metadata.get("题号", ""),
                 "explanation": "\n".join(
                     line.strip() for line in sections.get("解析", []) if line.strip()
                 ).strip(),
@@ -134,6 +147,27 @@ def parse_markdown(source):
 
 
 def main():
+    if len(sys.argv) == 5 and sys.argv[3] == '--chunk-size':
+        source_path = Path(sys.argv[1])
+        output_path = Path(sys.argv[2])
+        chunk_size = int(sys.argv[4])
+        questions = parse_markdown(source_path.read_text(encoding='utf-8'))
+        output_path.write_text('globalThis.KAOJJ_QUESTIONS = [];\n', encoding='utf-8')
+        chunks = [
+            questions[index:index + chunk_size]
+            for index in range(0, len(questions), chunk_size)
+        ]
+        width = max(2, len(str(len(chunks))))
+        for index, chunk in enumerate(chunks, start=1):
+            filename = f'{output_path.stem}-{index:0{width}d}{output_path.suffix}'
+            chunk_path = output_path.with_name(filename)
+            payload = json.dumps(chunk, ensure_ascii=False, separators=(',', ':'))
+            chunk_path.write_text(
+                f'globalThis.KAOJJ_QUESTIONS.push(...{payload});\n',
+                encoding='utf-8',
+            )
+        print(f'generated {len(questions)} questions in {len(chunks)} chunks')
+        return
     if len(sys.argv) != 3:
         raise SystemExit("usage: python build_question_bank.py <source.md> <question-bank.js>")
     source_path, output_path = map(Path, sys.argv[1:])
