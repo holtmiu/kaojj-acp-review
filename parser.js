@@ -6,12 +6,56 @@
     const source = String(markdown || "")
       .replace(/^\uFEFF/, "")
       .replace(/^---\s*\n[\s\S]*?\n---\s*\n/, "");
-    const questions = [];
-    splitIntoChunks(source).forEach((chunk) => {
-      const question = parseChunk(chunk);
-      if (question) questions.push(question);
-    });
+    const structuredChunks = splitStructuredQuestions(source);
+    const questions = (structuredChunks.length ? structuredChunks.map(parseStructuredChunk) : splitIntoChunks(source).map(parseChunk)).filter(Boolean);
     return questions.map((question, index) => ({ ...question, index, id: questionId(question) }));
+  }
+
+  function splitStructuredQuestions(source) {
+    const matches = [...source.matchAll(/^##\s+错题\s+\d+\/\d+\s*$/gm)];
+    return matches.map((match, index) => source.slice(match.index, matches[index + 1]?.index ?? source.length).trim());
+  }
+
+  function parseStructuredChunk(chunk) {
+    const sections = new Map();
+    let sectionName = "";
+    chunk.split(/\r?\n/).forEach((rawLine) => {
+      const heading = rawLine.trim().match(/^###\s+(.+)$/);
+      if (heading) {
+        sectionName = heading[1].trim();
+        sections.set(sectionName, []);
+        return;
+      }
+      if (sectionName) sections.get(sectionName).push(rawLine);
+    });
+
+    const stem = (sections.get("题干") || []).map((line) => line.trim()).filter(Boolean).join("\n").trim();
+    const options = [];
+    (sections.get("选项") || []).forEach((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) return;
+      const option = parseOptionLine(line);
+      if (option) options.push(option);
+      else if (options.length) options[options.length - 1].text = `${options[options.length - 1].text} ${line}`.trim();
+    });
+
+    let answerText = "";
+    (sections.get("答案") || []).forEach((rawLine) => {
+      const line = stripListMarker(rawLine.trim());
+      const answer = line.match(/^(?:答案|正确答案|正确选项)\s*[:：-]\s*(.+)$/i);
+      if (answer) answerText = answer[1].trim();
+    });
+
+    if (!stem || options.length < 2) return null;
+    const correctAnswers = parseAnswerLabels(answerText, options);
+    if (!correctAnswers.length) return null;
+
+    return {
+      stem,
+      options: options.map(({ label, text }) => ({ label, text })),
+      correctAnswers,
+      explanation: (sections.get("解析") || []).map((line) => line.trim()).filter(Boolean).join("\n").trim(),
+    };
   }
 
   function splitIntoChunks(source) {
@@ -108,7 +152,7 @@
   }
 
   function parseOptionLine(line) {
-    const clean = line.replace(/^[-*]\s+/, "").replace(/^\*\*(.*)\*\*$/, "$1").trim();
+    const clean = stripListMarker(line).replace(/^\*\*(.*)\*\*$/, "$1").trim();
     const markedCorrect = /^(?:✅|☑|✔|✓|\[x\])\s*/i.test(clean) || /\s*(?:✅|☑|✔|✓)\s*$/.test(clean);
     const withoutMarker = clean
       .replace(/^(?:✅|☑|✔|✓|\[x\])\s*/i, "")
@@ -120,14 +164,39 @@
     return { label: normalizeOptionLabel(match[1]), text: match[2].trim(), markedCorrect };
   }
 
+  function stripListMarker(line) {
+    return String(line || "").replace(/^(?:[-*]|•)\s*/, "").trim();
+  }
+
   function parseAnswerLabels(answerText, options) {
     if (!answerText) return [];
+    const cleaned = String(answerText)
+      .trim()
+      .replace(/^[\s•·、,，;；:：]+/, "")
+      .replace(/^[（(【\[]\s*/, "");
+    if (!cleaned || /^未识别/i.test(cleaned)) return [];
+
     const labels = [];
-    const tokens = answerText.toUpperCase().match(/[A-H]|\b[1-9]\b/g) || [];
-    tokens.forEach((token) => {
-      const label = normalizeOptionLabel(token);
-      if (options.some((option) => option.label === label)) labels.push(label);
-    });
+    const addLabels = (value) => {
+      String(value || "")
+        .toUpperCase()
+        .split(/[\s,，、/及和&+]+/)
+        .filter(Boolean)
+        .forEach((token) => {
+          [...token].forEach((part) => {
+            const label = normalizeOptionLabel(part);
+            if (options.some((option) => option.label === label)) labels.push(label);
+          });
+        });
+    };
+
+    const separatedLetters = cleaned.match(/^([A-Ha-h](?:\s*[,，、/及和&+]\s*[A-Ha-h])+)/);
+    const compactLetters = cleaned.match(/^([A-Ha-h]{1,8})(?=\s*(?:[.．:：)）-]|$))/);
+    const separatedNumbers = cleaned.match(/^([1-9](?:\s*[,，、/及和&+]\s*[1-9])+)/);
+    const compactNumbers = cleaned.match(/^([1-9]{1,8})(?=\s*(?:[.．:：)）-]|$))/);
+    const leadingToken = cleaned.match(/^([A-Ha-h1-9]{1,8})(?=\s|$)/);
+    const labelMatch = separatedLetters || compactLetters || separatedNumbers || compactNumbers || leadingToken;
+    if (labelMatch) addLabels(labelMatch[1]);
     if (labels.length) return unique(labels);
     const normalized = normalizeText(answerText);
     return options
