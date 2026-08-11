@@ -21,23 +21,15 @@
         </a>
         <div class="topbar-actions">
           <button id="install-button" class="button button-quiet" type="button" hidden>安装到设备</button>
-          <label class="button button-primary" for="markdown-input">导入错题</label>
-          <input id="markdown-input" type="file" accept=".md,.markdown,text/markdown" hidden />
         </div>
       </header>
 
       <main class="page" id="app">
         <section class="empty-state" id="empty-state">
           <div class="empty-icon" aria-hidden="true">✦</div>
-          <p class="eyebrow">PRIVATE · LOCAL FIRST</p>
-          <h1>随时刷一组 ACP 错题</h1>
-          <p class="lead">导入你的《KAOJJ错题清洗版》Markdown，题库和答题统计会保存在当前设备的浏览器中。</p>
-          <label class="dropzone" id="dropzone" for="markdown-input">
-            <span class="dropzone-icon" aria-hidden="true">↑</span>
-            <strong>选择或拖入 Markdown 文件</strong>
-            <span>支持 .md / .markdown</span>
-          </label>
-          <p class="privacy-note">无需注册、无需上传。以后可以用“导出备份”把进度带到另一台设备。</p>
+          <p class="eyebrow">QUESTION BANK ERROR</p>
+          <h1>题库暂时没有加载成功</h1>
+          <p class="lead">请刷新页面后重试。题目已经内置，不需要上传或选择任何文件。</p>
         </section>
 
         <section id="dashboard" hidden>
@@ -45,11 +37,10 @@
             <div>
               <p class="eyebrow">ACP REVIEW DESK</p>
               <h1>把薄弱点，刷成确定分。</h1>
-              <p class="hero-copy" id="source-label">尚未导入题库</p>
+              <p class="hero-copy" id="source-label">内置 KAOJJ ACP 错题库</p>
             </div>
             <div class="hero-actions">
-              <label class="button button-light" for="markdown-input">替换题库</label>
-              <button class="button button-light" id="export-button" type="button">导出备份</button>
+              <button class="button button-light" id="export-button" type="button">导出进度</button>
             </div>
           </section>
 
@@ -103,9 +94,9 @@
                   <span class="side-icon" aria-hidden="true">↗</span>
                   <div><h2>带走进度</h2><p>在手机和电脑之间移动</p></div>
                 </div>
-                <button class="button button-outline full-width" id="backup-import-button" type="button">导入备份 JSON</button>
+                <button class="button button-outline full-width" id="backup-import-button" type="button">导入进度 JSON</button>
                 <input id="backup-input" type="file" accept="application/json,.json" hidden />
-                <p class="field-help">静态站点没有账号服务，导出 JSON 后在另一台设备导入即可恢复统计。</p>
+                <p class="field-help">题库已内置。导出 JSON 后在另一台设备导入，即可恢复答题统计。</p>
               </section>
               <p class="local-badge"><span aria-hidden="true">●</span> 数据只保存在此浏览器</p>
             </aside>
@@ -114,7 +105,7 @@
       </main>
       <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     </div>
-    <script src="parser.js"></script>
+    <script src="question-bank.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

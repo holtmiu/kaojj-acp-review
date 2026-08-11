@@ -1,10 +1,10 @@
 const STORAGE_KEY = "kaojj-acp-static-v1";
 const DEFAULT_LIMIT = 3;
+const BUNDLED_QUESTIONS = Array.isArray(globalThis.KAOJJ_QUESTIONS) ? globalThis.KAOJJ_QUESTIONS : [];
 
 const state = {
-  questions: [],
+  questions: BUNDLED_QUESTIONS,
   stats: {},
-  sourceName: "",
   correctLimit: DEFAULT_LIMIT,
   currentQuestion: null,
   lastQuestionId: null,
@@ -17,10 +17,8 @@ const $ = (id) => document.getElementById(id);
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (!saved || !Array.isArray(saved.questions)) return;
-    state.questions = saved.questions;
+    if (!saved || typeof saved !== "object") return;
     state.stats = saved.stats && typeof saved.stats === "object" ? saved.stats : {};
-    state.sourceName = String(saved.sourceName || "");
     state.correctLimit = validLimit(saved.correctLimit);
   } catch (error) {
     showToast("本地进度读取失败，将从空题库开始");
@@ -31,10 +29,8 @@ function persist() {
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
-      version: 1,
-      questions: state.questions,
+      version: 2,
       stats: state.stats,
-      sourceName: state.sourceName,
       correctLimit: state.correctLimit,
     }),
   );
@@ -95,7 +91,7 @@ function render() {
   if (!hasQuestions) return;
 
   const summary = getSummary();
-  $("source-label").textContent = `题库：${state.sourceName || "本地题库"} · 答对超过 ${state.correctLimit} 次后移出`;
+  $("source-label").textContent = `内置题库：${state.questions.length} 道 · 答对超过 ${state.correctLimit} 次后移出`;
   $("remaining-count").textContent = String(state.questions.length - summary.mastered);
   $("mastered-count").textContent = String(summary.mastered);
   $("attempt-count").textContent = String(summary.attempts);
@@ -208,52 +204,12 @@ function submitAnswer() {
   render();
 }
 
-async function importMarkdown(file) {
-  if (!file) return;
-  try {
-    const questions = KaojjParser.parseQuestionNote(await file.text());
-    if (!questions.length) throw new Error("没有解析到题目。请确认题目包含至少两个选项和答案标记。");
-    state.questions = questions;
-    state.sourceName = file.name;
-    state.currentQuestion = null;
-    state.lastQuestionId = null;
-    state.stats = {};
-    persist();
-    chooseNextQuestion();
-    render();
-    showToast(`已导入 ${questions.length} 道题`);
-  } catch (error) {
-    showToast(error.message || "题库导入失败");
-  }
-}
-
-async function loadBundledQuestionBank() {
-  if (state.questions.length) return;
-  try {
-    const response = await fetch("questions.md", { cache: "no-store" });
-    if (!response.ok) return;
-    const questions = KaojjParser.parseQuestionNote(await response.text());
-    if (!questions.length) return;
-    if (state.questions.length) return;
-    state.questions = questions;
-    state.sourceName = "questions.md";
-    chooseNextQuestion();
-    persist();
-    render();
-    showToast(`已自动加载 ${questions.length} 道题`);
-  } catch (error) {
-    // A bundled file is optional; the upload flow remains available.
-  }
-}
-
 function exportBackup() {
   const payload = {
     app: "kaojj-acp-static",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
-    sourceName: state.sourceName,
     correctLimit: state.correctLimit,
-    questions: state.questions,
     stats: state.stats,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -263,28 +219,25 @@ function exportBackup() {
   link.download = `kaojj-acp-backup-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
-  showToast("备份已导出");
+  showToast("答题进度已导出");
 }
 
 async function importBackup(file) {
   if (!file) return;
   try {
     const saved = JSON.parse(await file.text());
-    if (!Array.isArray(saved.questions) || !saved.questions.length) throw new Error("备份中没有题库数据");
-    if (!saved.questions.every((question) => question.id && question.stem && Array.isArray(question.options))) {
-      throw new Error("备份格式不完整");
+    if (!saved || typeof saved !== "object" || !saved.stats || typeof saved.stats !== "object") {
+      throw new Error("进度文件格式不完整");
     }
-    state.questions = saved.questions;
     state.stats = saved.stats && typeof saved.stats === "object" ? saved.stats : {};
-    state.sourceName = String(saved.sourceName || "备份题库");
     state.correctLimit = validLimit(saved.correctLimit);
     state.currentQuestion = null;
     chooseNextQuestion();
     persist();
     render();
-    showToast(`已恢复 ${state.questions.length} 道题和答题统计`);
+    showToast("答题进度已恢复");
   } catch (error) {
-    showToast(error.message || "备份导入失败");
+    showToast(error.message || "进度导入失败");
   }
 }
 
@@ -306,27 +259,11 @@ function showToast(message) {
   showToast.timer = setTimeout(() => { toast.hidden = true; }, 2800);
 }
 
-function setupFileInputs() {
-  $("markdown-input").addEventListener("change", (event) => {
-    void importMarkdown(event.target.files[0]);
-    event.target.value = "";
-  });
+function setupProgressImport() {
   $("backup-import-button").addEventListener("click", () => $("backup-input").click());
   $("backup-input").addEventListener("change", (event) => {
     void importBackup(event.target.files[0]);
     event.target.value = "";
-  });
-  const dropzone = $("dropzone");
-  ["dragenter", "dragover"].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    dropzone.classList.add("is-dragging");
-  }));
-  ["dragleave", "drop"].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    dropzone.classList.remove("is-dragging");
-  }));
-  dropzone.addEventListener("drop", (event) => {
-    void importMarkdown(event.dataTransfer.files[0]);
   });
 }
 
@@ -367,8 +304,9 @@ $("limit-input").addEventListener("change", (event) => {
 });
 
 loadState();
-setupFileInputs();
+chooseNextQuestion();
+setupProgressImport();
 setupInstallPrompt();
 setupServiceWorker();
 render();
-void loadBundledQuestionBank();
+persist();
